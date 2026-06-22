@@ -34,7 +34,6 @@ app.use('/api/movies', movieRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
 
-app.get('/', (_req, res) => res.json({ message: 'About Movie Tickets API' }));
 
 // Global error handler
 app.use((err, _req, res, _next) => {
