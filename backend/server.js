@@ -34,7 +34,7 @@ app.use('/api/movies', movieRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
 
-app.get('/', (_req, res) => res.json({ message: 'Movie Tickets API running' }));
+app.get('/', (_req, res) => res.json({ message: 'About Movie Tickets API' }));
 
 // Global error handler
 app.use((err, _req, res, _next) => {
@@ -61,15 +61,23 @@ app.use(async (_req, _res, next) => {
 
 // Listen locally only — Vercel imports this file and uses the exported app
 if (process.env.NODE_ENV !== 'production') {
-  const server = app.listen(PORT, () => {
-    console.log(`\nBackend: http://localhost:${PORT}`);
-    console.log(`Stripe:  ${process.env.STRIPE_SECRET_KEY ? '✅ key loaded' : '❌ MISSING'}`);
-    console.log(`JWT:     ${process.env.JWT_SECRET ? '✅ key loaded' : '❌ MISSING'}\n`);
-  });
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') { console.error(`Port ${PORT} in use.`); process.exit(1); }
-    else console.error('Server error:', err);
-  });
+  function startServer(retries = 5) {
+    const server = app.listen(PORT, () => {
+      console.log(`\nBackend: http://localhost:${PORT}`);
+      console.log(`Stripe:  ${process.env.STRIPE_SECRET_KEY ? '✅ key loaded' : '❌ MISSING'}`);
+      console.log(`JWT:     ${process.env.JWT_SECRET ? '✅ key loaded' : '❌ MISSING'}\n`);
+    });
+    server.on('error', (err) => {
+      if (err.code === 'EADDRINUSE' && retries > 0) {
+        console.log(`Port ${PORT} in use — retrying in 1s… (${retries} attempts left)`);
+        setTimeout(() => startServer(retries - 1), 1000);
+      } else {
+        console.error('Server error:', err);
+        process.exit(1);
+      }
+    });
+  }
+  startServer();
 }
 
 export default app;
