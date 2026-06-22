@@ -15,30 +15,50 @@ function getStripe() {
   return _stripe;
 }
 
-function getMovie(movieId) {
-  const row = db.prepare('SELECT * FROM movies WHERE id = ?').get(movieId);
+async function getMovie(movieId) {
+  const { rows } = await db.query('SELECT * FROM movies WHERE id = $1', [movieId]);
+  const row = rows[0];
   if (!row) return null;
-  return { ...row, cast: JSON.parse(row.cast || '[]') };
+  return {
+    id: row.id,
+    title: row.title,
+    genre: row.genre,
+    duration: row.duration,
+    language: row.language,
+    price: row.price,
+    posterImage: row.poster_image,
+    cast: typeof row.cast === 'string' ? JSON.parse(row.cast || '[]') : (row.cast || []),
+  };
 }
 
 router.post('/create-checkout-session', authMiddleware, async (req, res) => {
   const { seatId, movieId } = req.body;
   const userId = req.user.id;
 
-  if (!seatId || !movieId) return res.status(400).json({ message: 'seatId and movieId required.' });
-
-  const movie = getMovie(movieId);
-  if (!movie) return res.status(404).json({ message: 'Movie not found.' });
-
-  const alreadyPaid = db.prepare(
-    "SELECT id FROM bookings WHERE userId=? AND movieId=? AND paymentStatus='paid'"
-  ).get(userId, movieId);
-  if (alreadyPaid) return res.status(409).json({ message: 'You already have a confirmed ticket for this movie.' });
-
-  const seat = db.prepare('SELECT * FROM seats WHERE id=? AND isBooked=0').get(seatId);
-  if (!seat) return res.status(409).json({ message: 'This seat is no longer available.' });
+  if (!seatId || !movieId) {
+    return res.status(400).json({ message: 'seatId and movieId required.' });
+  }
 
   try {
+    const movie = await getMovie(movieId);
+    if (!movie) return res.status(404).json({ message: 'Movie not found.' });
+
+    const alreadyPaid = await db.query(
+      `SELECT id FROM bookings WHERE user_id=$1 AND movie_id=$2 AND payment_status='paid'`,
+      [userId, movieId]
+    );
+    if (alreadyPaid.rows.length > 0) {
+      return res.status(409).json({ message: 'You already have a confirmed ticket for this movie.' });
+    }
+
+    const seatResult = await db.query(
+      `SELECT * FROM seats WHERE id=$1 AND is_booked=0`,
+      [seatId]
+    );
+    if (seatResult.rows.length === 0) {
+      return res.status(409).json({ message: 'This seat is no longer available.' });
+    }
+
     const stripe = getStripe();
     const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173';
 
@@ -56,7 +76,11 @@ router.post('/create-checkout-session', authMiddleware, async (req, res) => {
         },
         quantity: 1,
       }],
-      metadata: { userId: String(userId), seatId: String(seatId), movieId: String(movieId) },
+      metadata: {
+        userId: String(userId),
+        seatId: String(seatId),
+        movieId: String(movieId),
+      },
       success_url: `${clientUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${clientUrl}/movies/${movieId}?cancelled=1`,
     };
@@ -67,14 +91,23 @@ router.post('/create-checkout-session', authMiddleware, async (req, res) => {
 
     const session = await stripe.checkout.sessions.create(payload);
 
-    const pending = db.prepare(
-      "SELECT id FROM bookings WHERE userId=? AND movieId=? AND paymentStatus='pending'"
-    ).get(userId, movieId);
+    // Update existing pending booking or create new one
+    const pending = await db.query(
+      `SELECT id FROM bookings WHERE user_id=$1 AND movie_id=$2 AND payment_status='pending'`,
+      [userId, movieId]
+    );
 
-    if (pending) {
-      db.prepare('UPDATE bookings SET seatId=?, stripeSessionId=? WHERE id=?').run(seatId, session.id, pending.id);
+    if (pending.rows.length > 0) {
+      await db.query(
+        `UPDATE bookings SET seat_id=$1, stripe_session_id=$2 WHERE id=$3`,
+        [seatId, session.id, pending.rows[0].id]
+      );
     } else {
-      db.prepare('INSERT INTO bookings (userId,seatId,movieId,paymentStatus,stripeSessionId) VALUES (?,?,?,?,?)').run(userId, seatId, movieId, 'pending', session.id);
+      await db.query(
+        `INSERT INTO bookings (user_id, seat_id, movie_id, payment_status, stripe_session_id)
+         VALUES ($1,$2,$3,'pending',$4)`,
+        [userId, seatId, movieId, session.id]
+      );
     }
 
     res.json({ url: session.url, sessionId: session.id });
@@ -97,26 +130,48 @@ router.get('/verify/:sessionId', authMiddleware, async (req, res) => {
     }
 
     const { userId, seatId, movieId } = session.metadata;
-    let booking = db.prepare('SELECT * FROM bookings WHERE stripeSessionId=?').get(session.id);
 
-    if (!booking) {
-      booking = db.prepare(
-        "SELECT * FROM bookings WHERE userId=? AND movieId=? AND paymentStatus='pending'"
-      ).get(Number(userId), movieId);
-      if (!booking) return res.status(404).json({ success: false, message: 'Booking record not found.' });
+    // Find booking by stripe session id first, fall back to pending
+    let bookingResult = await db.query(
+      `SELECT * FROM bookings WHERE stripe_session_id=$1`,
+      [session.id]
+    );
+
+    if (bookingResult.rows.length === 0) {
+      bookingResult = await db.query(
+        `SELECT * FROM bookings WHERE user_id=$1 AND movie_id=$2 AND payment_status='pending'`,
+        [Number(userId), movieId]
+      );
+      if (bookingResult.rows.length === 0) {
+        return res.status(404).json({ success: false, message: 'Booking record not found.' });
+      }
     }
 
-    if (booking.paymentStatus !== 'paid') {
-      db.prepare('UPDATE bookings SET paymentStatus=?, seatId=? WHERE id=?').run('paid', Number(seatId), booking.id);
-      db.prepare('UPDATE seats SET isBooked=1, bookedBy=? WHERE id=?').run(Number(userId), Number(seatId));
-      booking = db.prepare('SELECT * FROM bookings WHERE id=?').get(booking.id);
+    let booking = bookingResult.rows[0];
+
+    if (booking.payment_status !== 'paid') {
+      await db.query(
+        `UPDATE bookings SET payment_status='paid', seat_id=$1 WHERE id=$2`,
+        [Number(seatId), booking.id]
+      );
+      await db.query(
+        `UPDATE seats SET is_booked=1, booked_by=$1 WHERE id=$2`,
+        [Number(userId), Number(seatId)]
+      );
+      const updated = await db.query('SELECT * FROM bookings WHERE id=$1', [booking.id]);
+      booking = updated.rows[0];
     }
 
-    const movie = getMovie(movieId);
+    const movie = await getMovie(movieId);
     res.json({
       success: true,
       booking: {
-        ...booking,
+        id: booking.id,
+        userId: booking.user_id,
+        seatId: booking.seat_id,
+        movieId: booking.movie_id,
+        paymentStatus: booking.payment_status,
+        bookedAt: booking.booked_at,
         movieTitle: movie?.title || 'Unknown',
         price: movie?.price || 0,
         moviePoster: movie?.posterImage || null,

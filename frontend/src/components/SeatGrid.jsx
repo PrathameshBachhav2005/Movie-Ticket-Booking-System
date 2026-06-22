@@ -1,7 +1,8 @@
 export default function SeatGrid({ seats, selectedSeat, onSelect, currentUserId }) {
   if (!seats || seats.length === 0) return <p className="text-gray-500 text-center py-8">No seats available.</p>;
 
-  const available = seats.filter(s => !s.isBooked).length;
+  // Support both camelCase (aliased) and lowercase (raw PG) column names
+  const available = seats.filter(s => !(s.isBooked ?? s.is_booked)).length;
 
   return (
     <div className="animate-fade-up">
@@ -29,8 +30,10 @@ export default function SeatGrid({ seats, selectedSeat, onSelect, currentUserId 
 
       <div className="grid grid-cols-5 gap-2.5 max-w-xs mx-auto">
         {seats.map((seat) => {
-          const mine = seat.isBooked && seat.bookedBy === currentUserId;
-          const booked = seat.isBooked && !mine;
+          const isBooked = !!(seat.isBooked ?? seat.is_booked);
+          const bookedBy = seat.bookedBy ?? seat.booked_by;
+          const mine = isBooked && bookedBy === currentUserId;
+          const booked = isBooked && !mine;
           const selected = selectedSeat === seat.id;
 
           let style = {};

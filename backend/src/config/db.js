@@ -5,71 +5,75 @@ const { Pool } = pg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+  // Always use SSL for remote DBs (Aiven, Neon, Supabase etc.)
+  // rejectUnauthorized: false accepts self-signed certs used by Aiven/Neon
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
 export async function initDb() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS users (
+  // Split into individual statements — pg driver doesn't support multiple
+  // statements in a single query() call reliably
+  const statements = [
+    `CREATE TABLE IF NOT EXISTS users (
       id       SERIAL PRIMARY KEY,
       username TEXT UNIQUE NOT NULL,
       email    TEXT UNIQUE NOT NULL,
       password TEXT NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS movies (
-      id          TEXT PRIMARY KEY,
-      title       TEXT NOT NULL,
-      genre       TEXT,
-      duration    TEXT,
-      rating      REAL,
-      language    TEXT,
-      "releaseDate" TEXT,
-      description TEXT,
-      cast        TEXT,
-      price       INTEGER,
-      "posterImage" TEXT
-    );
-
-    CREATE TABLE IF NOT EXISTS seats (
+    )`,
+    `CREATE TABLE IF NOT EXISTS movies (
+      id           TEXT PRIMARY KEY,
+      title        TEXT NOT NULL,
+      genre        TEXT,
+      duration     TEXT,
+      rating       REAL,
+      language     TEXT,
+      release_date TEXT,
+      description  TEXT,
+      "cast"       TEXT,
+      price        INTEGER,
+      poster_image TEXT
+    )`,
+    `CREATE TABLE IF NOT EXISTS seats (
       id        SERIAL PRIMARY KEY,
-      "isBooked" INTEGER DEFAULT 0,
-      "bookedBy" INTEGER
-    );
-
-    CREATE TABLE IF NOT EXISTS bookings (
+      is_booked INTEGER DEFAULT 0,
+      booked_by INTEGER
+    )`,
+    `CREATE TABLE IF NOT EXISTS bookings (
       id               SERIAL PRIMARY KEY,
-      "userId"         INTEGER NOT NULL,
-      "seatId"         INTEGER NOT NULL,
-      "movieId"        TEXT NOT NULL,
-      "paymentStatus"  TEXT DEFAULT 'pending',
-      "stripeSessionId" TEXT,
-      "bookedAt"       TEXT DEFAULT (to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS'))
-    );
+      user_id          INTEGER NOT NULL,
+      seat_id          INTEGER NOT NULL,
+      movie_id         TEXT NOT NULL,
+      payment_status   TEXT DEFAULT 'pending',
+      stripe_session_id TEXT,
+      booked_at        TEXT DEFAULT to_char(NOW(), 'YYYY-MM-DD HH24:MI:SS')
+    )`,
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_stripe_session
+      ON bookings(stripe_session_id)
+      WHERE stripe_session_id IS NOT NULL`,
+  ];
 
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_stripe_session
-      ON bookings("stripeSessionId")
-      WHERE "stripeSessionId" IS NOT NULL;
-  `);
+  for (const sql of statements) {
+    await pool.query(sql);
+  }
 
   // Upsert all movies from seed data
   for (const m of seedMovies) {
     await pool.query(
-      `INSERT INTO movies (id, title, genre, duration, rating, language, "releaseDate", description, cast, price, "posterImage")
+      `INSERT INTO movies (id, title, genre, duration, rating, language, release_date, description, "cast", price, poster_image)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
        ON CONFLICT (id) DO UPDATE SET
          title=$2, genre=$3, duration=$4, rating=$5, language=$6,
-         "releaseDate"=$7, description=$8, cast=$9, price=$10, "posterImage"=$11`,
+         release_date=$7, description=$8, "cast"=$9, price=$10, poster_image=$11`,
       [m.id, m.title, m.genre, m.duration, m.rating, m.language,
        m.releaseDate, m.description, JSON.stringify(m.cast), m.price, m.posterImage]
     );
   }
 
   // Seed 40 seats only if table is empty
-  const { rows } = await pool.query('SELECT COUNT(*) as total FROM seats');
+  const { rows } = await pool.query('SELECT COUNT(*) AS total FROM seats');
   if (parseInt(rows[0].total) === 0) {
     for (let i = 0; i < 40; i++) {
-      await pool.query('INSERT INTO seats ("isBooked") VALUES (0)');
+      await pool.query('INSERT INTO seats (is_booked) VALUES (0)');
     }
   }
 }

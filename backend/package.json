@@ -15,12 +15,12 @@
   "type": "module",
   "dependencies": {
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.9.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.20.0"
+    "pg": "^8.20.0",
+    "stripe": "^22.2.2"
   }
 }
