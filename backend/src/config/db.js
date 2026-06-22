@@ -10,7 +10,25 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
 });
 
-export async function initDb() {
+export async function initDb(retries = 5, delayMs = 2000) {
+  // Retry on transient network errors (ETIMEDOUT, ENOTFOUND etc.)
+  for (let attempt = 1; attempt <= retries; attempt++) {
+    try {
+      await _initDb();
+      return; // success
+    } catch (err) {
+      const transient = ['ETIMEDOUT', 'ENOTFOUND', 'ECONNREFUSED', 'ECONNRESET'].includes(err.code);
+      if (transient && attempt < retries) {
+        console.warn(`⚠️  DB connection attempt ${attempt}/${retries} failed (${err.code}) — retrying in ${delayMs / 1000}s…`);
+        await new Promise(r => setTimeout(r, delayMs));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+async function _initDb() {
   // Split into individual statements — pg driver doesn't support multiple
   // statements in a single query() call reliably
   const statements = [
