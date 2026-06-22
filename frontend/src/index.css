@@ -1,0 +1,68 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-[#080810] text-white; font-family: system-ui, sans-serif; }
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: #0d0d1a; }
+  ::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 3px; }
+}
+
+@layer utilities {
+  .glass {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+  .text-gradient {
+    background: linear-gradient(135deg,#a78bfa,#ec4899);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .btn-primary {
+    @apply font-semibold text-white rounded-xl px-6 py-3 transition-all duration-300
+           disabled:opacity-50 disabled:cursor-not-allowed;
+    background: linear-gradient(135deg,#7c3aed,#ec4899);
+  }
+  .btn-primary:not(:disabled):hover {
+    background: linear-gradient(135deg,#6d28d9,#db2777);
+    box-shadow: 0 8px 24px rgba(124,58,237,0.4);
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    @apply rounded-xl px-6 py-3 font-semibold transition-all duration-200;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    color: #d1d5db;
+  }
+  .btn-ghost:hover { background: rgba(255,255,255,0.10); color: #fff; }
+  .input-field {
+    @apply w-full rounded-xl px-4 py-3 text-white text-sm
+           placeholder-gray-500 focus:outline-none transition-all duration-200;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.10);
+  }
+  .input-field:focus { border-color:#7c3aed; background:rgba(124,58,237,0.05); }
+  .card {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 1rem;
+  }
+}
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+@keyframes scaleIn { from{opacity:0;transform:scale(0.95)} to{opacity:1;transform:scale(1)} }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+@keyframes shimmer { 0%{background-position:-200% 0} 100%{background-position:200% 0} }
+
+.animate-fade-up { animation: fadeUp 0.4s ease-out both; }
+.animate-scale-in { animation: scaleIn 0.3s ease-out both; }
+.animate-float { animation: float 3s ease-in-out infinite; }
+.skeleton {
+  background: linear-gradient(90deg,rgba(255,255,255,0.05) 25%,rgba(255,255,255,0.10) 50%,rgba(255,255,255,0.05) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
