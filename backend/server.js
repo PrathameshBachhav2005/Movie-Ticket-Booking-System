@@ -28,13 +28,17 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: 'Internal server error' });
 });
 
-const server = app.listen(PORT, () => {
-  console.log(`\nBackend: http://localhost:${PORT}`);
-  console.log(`Stripe:  ${process.env.STRIPE_SECRET_KEY ? '✅ key loaded' : '❌ MISSING — set STRIPE_SECRET_KEY in .env'}`);
-  console.log(`JWT:     ${process.env.JWT_SECRET ? '✅ key loaded' : '❌ MISSING'}\n`);
-});
+if (process.env.NODE_ENV !== 'production') {
+  const server = app.listen(PORT, () => {
+    console.log(`\nBackend: http://localhost:${PORT}`);
+    console.log(`Stripe:  ${process.env.STRIPE_SECRET_KEY ? '✅ key loaded' : '❌ MISSING — set STRIPE_SECRET_KEY in .env'}`);
+    console.log(`JWT:     ${process.env.JWT_SECRET ? '✅ key loaded' : '❌ MISSING'}\n`);
+  });
 
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') { console.error(`Port ${PORT} in use.`); process.exit(1); }
-  else console.error('Server error:', err);
-});
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') { console.error(`Port ${PORT} in use.`); process.exit(1); }
+    else console.error('Server error:', err);
+  });
+}
+
+export default app;
