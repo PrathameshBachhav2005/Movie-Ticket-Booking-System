@@ -19,21 +19,23 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
+// CORS must be registered before any routes
 app.use(cors({
   origin: (origin, cb) => {
-    // Allow requests with no origin (curl, Postman, same-origin Vercel)
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
     cb(new Error(`CORS blocked: ${origin}`));
   },
   credentials: true,
 }));
+
 app.use(express.json());
 
+// Routes
+app.get('/', (_req, res) => res.json({ message: 'Movie Tickets API running' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
-
 
 // Global error handler
 app.use((err, _req, res, _next) => {
@@ -41,24 +43,34 @@ app.use((err, _req, res, _next) => {
   res.status(500).json({ message: err.message || 'Internal server error' });
 });
 
-// Initialise DB once per cold start — blocks requests until ready
+// ─── DB initialisation ────────────────────────────────────────────────────────
+// Run once per cold start. On Vercel this happens inside the first request
+// because top-level await isn't used (keeps startup fast).
 let dbReady = false;
+let dbError = null;
+
 const dbInit = initDb()
   .then(() => {
     dbReady = true;
     console.log('✅ Database ready');
   })
   .catch((err) => {
-    console.error('❌ Failed to initialise database:', err.message);
+    dbError = err;
+    console.error('❌ DB init failed:', err.message);
+    // In local dev crash immediately so you see the error
     if (process.env.NODE_ENV !== 'production') process.exit(1);
   });
 
-app.use(async (_req, _res, next) => {
-  if (!dbReady) await dbInit;
+// Middleware that waits for DB before processing any request
+app.use(async (_req, res, next) => {
+  if (!dbReady) {
+    if (dbError) return res.status(503).json({ message: 'Database unavailable: ' + dbError.message });
+    await dbInit;
+  }
   next();
 });
 
-// Listen locally only — Vercel imports this file and uses the exported app
+// ─── Local dev server ─────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {
   function startServer(retries = 5) {
     const server = app.listen(PORT, () => {
@@ -68,7 +80,7 @@ if (process.env.NODE_ENV !== 'production') {
     });
     server.on('error', (err) => {
       if (err.code === 'EADDRINUSE' && retries > 0) {
-        console.log(`Port ${PORT} in use — retrying in 1s… (${retries} attempts left)`);
+        console.log(`Port ${PORT} in use — retrying in 1s… (${retries} left)`);
         setTimeout(() => startServer(retries - 1), 1000);
       } else {
         console.error('Server error:', err);
@@ -79,4 +91,5 @@ if (process.env.NODE_ENV !== 'production') {
   startServer();
 }
 
+// Exported for Vercel serverless
 export default app;
