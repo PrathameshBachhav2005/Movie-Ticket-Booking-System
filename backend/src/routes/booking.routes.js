@@ -1,33 +1,22 @@
 import { Router } from 'express';
-import db from '../config/db.js';
+import Seat from '../models/Seat.js';
+import Booking from '../models/Booking.js';
+import Movie from '../models/Movie.js';
 import authMiddleware from '../middleware/auth.js';
 
 const router = Router();
 
-async function getMovie(movieId) {
-  const { rows } = await db.query('SELECT * FROM movies WHERE id = $1', [movieId]);
-  const row = rows[0];
-  if (!row) return null;
-  return {
-    id: row.id,
-    title: row.title,
-    genre: row.genre,
-    duration: row.duration,
-    price: row.price,
-    posterImage: row.poster_image,
-    cast: typeof row.cast === 'string' ? JSON.parse(row.cast || '[]') : (row.cast || []),
-  };
-}
-
 router.get('/seats', authMiddleware, async (_req, res) => {
   try {
-    const { rows } = await db.query(
-      `SELECT s.id, s.is_booked AS "isBooked", s.booked_by AS "bookedBy", u.username
-       FROM seats s
-       LEFT JOIN users u ON s.booked_by = u.id
-       ORDER BY s.id`
-    );
-    res.json({ seats: rows });
+    const seats = await Seat.find().sort({ seatNumber: 1 }).populate('bookedBy', 'username').lean();
+    const result = seats.map(s => ({
+      id: s._id,
+      seatNumber: s.seatNumber,
+      isBooked: s.isBooked,
+      bookedBy: s.bookedBy?._id || null,
+      username: s.bookedBy?.username || null,
+    }));
+    res.json({ seats: result });
   } catch (err) {
     console.error('Seats fetch error:', err);
     res.status(500).json({ message: 'Error fetching seats.' });
@@ -36,21 +25,21 @@ router.get('/seats', authMiddleware, async (_req, res) => {
 
 router.get('/my', authMiddleware, async (req, res) => {
   try {
-    const { rows } = await db.query(
-      `SELECT * FROM bookings WHERE user_id = $1 AND payment_status = 'paid' ORDER BY id DESC`,
-      [req.user.id]
-    );
+    const bookings = await Booking.find({
+      userId: req.user.id,
+      paymentStatus: 'paid',
+    }).sort({ createdAt: -1 }).lean();
 
-    const bookings = await Promise.all(rows.map(async (b) => {
-      const movie = await getMovie(b.movie_id);
+    const result = await Promise.all(bookings.map(async (b) => {
+      const movie = await Movie.findOne({ id: b.movieId }).lean();
+      const seat = await Seat.findById(b.seatId).lean();
       return {
-        id: b.id,
-        userId: b.user_id,
-        seatId: b.seat_id,
-        movieId: b.movie_id,
-        paymentStatus: b.payment_status,
-        stripeSessionId: b.stripe_session_id,
-        bookedAt: b.booked_at,
+        id: b._id,
+        seatId: b.seatId,
+        seatNumber: seat?.seatNumber || '?',
+        movieId: b.movieId,
+        paymentStatus: b.paymentStatus,
+        bookedAt: b.createdAt,
         movieTitle: movie?.title || 'Unknown',
         price: movie?.price || 0,
         moviePoster: movie?.posterImage || null,
@@ -59,7 +48,7 @@ router.get('/my', authMiddleware, async (req, res) => {
       };
     }));
 
-    res.json({ bookings });
+    res.json({ bookings: result });
   } catch (err) {
     console.error('Bookings fetch error:', err);
     res.status(500).json({ message: 'Error fetching bookings.' });

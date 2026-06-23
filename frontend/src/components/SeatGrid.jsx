@@ -55,8 +55,8 @@ export default function SeatGrid({ seats, selectedSeat, onSelect, currentUserId 
               onMouseEnter={(e) => { if (!booked && !mine && !selected) { e.currentTarget.style.background='rgba(124,58,237,0.20)'; e.currentTarget.style.borderColor='rgba(124,58,237,0.50)'; e.currentTarget.style.color='#fff'; } }}
               onMouseLeave={(e) => { if (!booked && !mine && !selected) { e.currentTarget.style.background='rgba(255,255,255,0.05)'; e.currentTarget.style.borderColor='rgba(255,255,255,0.10)'; e.currentTarget.style.color='#9ca3af'; } }}
               disabled={booked || mine}
-              aria-label={`Seat ${seat.id}`}>
-              {mine ? '✓' : seat.id}
+              aria-label={`Seat ${seat.seatNumber ?? seat.id}`}>
+              {mine ? '✓' : seat.seatNumber ?? seat.id}
             </button>
           );
         })}

@@ -12,7 +12,7 @@ export default function MovieDetailPage() {
 
   const [movie, setMovie] = useState(null);
   const [seats, setSeats] = useState([]);
-  const [selectedSeat, setSelectedSeat] = useState(null);
+  const [selectedSeat, setSelectedSeat] = useState(null); // full seat object { id, seatNumber }
   const [loadingMovie, setLoadingMovie] = useState(true);
   const [loadingSeats, setLoadingSeats] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -39,7 +39,7 @@ export default function MovieDetailPage() {
     if (!selectedSeat) return;
     setPaying(true); setError('');
     try {
-      const res = await api.post('/payment/create-checkout-session', { seatId: selectedSeat, movieId: id });
+      const res = await api.post('/payment/create-checkout-session', { seatId: selectedSeat.id, movieId: id });
       window.location.href = res.data.url;
     } catch (err) {
       setError(err.response?.data?.message || 'Could not start payment. Check your Stripe key.');
@@ -112,18 +112,21 @@ export default function MovieDetailPage() {
             {error && <div className="text-red-400 text-sm px-4 py-3 rounded-xl mb-6" style={{background:'rgba(239,68,68,0.10)',border:'1px solid rgba(239,68,68,0.20)'}}>{error}</div>}
             {loadingSeats
               ? <div className="flex justify-center py-12"><div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin" /></div>
-              : <SeatGrid seats={seats} selectedSeat={selectedSeat} onSelect={setSelectedSeat} currentUserId={user?.id} />
+              : <SeatGrid seats={seats} selectedSeat={selectedSeat?.id} onSelect={(seatId) => {
+                  const seat = seats.find(s => s.id === seatId);
+                  setSelectedSeat(seat || null);
+                }} currentUserId={user?.id} />
             }
             {selectedSeat && (
               <div className="mt-8 p-5 rounded-2xl animate-fade-up" style={{background:'rgba(124,58,237,0.08)',border:'1px solid rgba(124,58,237,0.25)',boxShadow:'0 0 30px rgba(124,58,237,0.15)'}}>
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold shadow-lg" style={{background:'linear-gradient(135deg,#7c3aed,#ec4899)'}}>
-                      {selectedSeat}
+                      {selectedSeat.seatNumber}
                     </div>
                     <div>
                       <p className="text-white font-semibold">{movie.title}</p>
-                      <p className="text-gray-400 text-xs">Seat #{selectedSeat}</p>
+                      <p className="text-gray-400 text-xs">Seat #{selectedSeat.seatNumber}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-4">

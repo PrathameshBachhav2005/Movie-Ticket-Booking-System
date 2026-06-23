@@ -49,7 +49,7 @@ export default function PaymentSuccessPage() {
             </div>
             <div>
               <p className="font-bold text-white">{booking?.movieTitle}</p>
-              <p className="text-gray-400 text-xs mt-0.5">Seat #{booking?.seatId}</p>
+              <p className="text-gray-400 text-xs mt-0.5">Seat #{booking?.seatNumber ?? booking?.seatId}</p>
             </div>
           </div>
           <div className="space-y-3 text-sm">

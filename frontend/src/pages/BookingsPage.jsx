@@ -55,7 +55,7 @@ export default function BookingsPage() {
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-white text-sm sm:text-base truncate">{b.movieTitle}</h3>
                   <div className="flex flex-wrap gap-2 mt-1.5">
-                    <span className="text-gray-400 text-[10px] px-2 py-0.5 rounded-full" style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.10)'}}>Seat #{b.seatId}</span>
+                    <span className="text-gray-400 text-[10px] px-2 py-0.5 rounded-full" style={{background:'rgba(255,255,255,0.05)',border:'1px solid rgba(255,255,255,0.10)'}}>Seat #{b.seatNumber ?? b.seatId}</span>
                     {b.genre && <span className="text-violet-400 text-[10px] px-2 py-0.5 rounded-full" style={{background:'rgba(124,58,237,0.10)',border:'1px solid rgba(124,58,237,0.20)'}}>{b.genre.split(' / ')[0]}</span>}
                   </div>
                 </div>

@@ -15,7 +15,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
-// 1. CORS — must be first
+// 1. CORS
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -27,47 +27,40 @@ app.use(cors({
 // 2. Body parser
 app.use(express.json());
 
-// 3. DB init — kick off immediately, don't block module load
+// 3. DB init
 let dbReady = false;
 let dbError = null;
 
 const dbInit = initDb()
-  .then(() => {
-    dbReady = true;
-    console.log('✅ Database ready');
-  })
+  .then(() => { dbReady = true; })
   .catch((err) => {
     dbError = err;
     console.error('❌ DB init failed:', err.message);
     if (process.env.NODE_ENV !== 'production') process.exit(1);
   });
 
-// 4. DB gate — BEFORE all routes, every request waits for DB
+// 4. DB gate — every request waits for DB before being handled
 app.use(async (_req, res, next) => {
   if (dbReady) return next();
   if (dbError) return res.status(503).json({ message: 'Database unavailable: ' + dbError.message });
-  try {
-    await dbInit;
-    next();
-  } catch (err) {
-    res.status(503).json({ message: 'Database unavailable: ' + err.message });
-  }
+  try { await dbInit; next(); }
+  catch (err) { res.status(503).json({ message: 'Database unavailable: ' + err.message }); }
 });
 
-// 5. Routes — after DB gate
+// 5. Routes
 app.get('/', (_req, res) => res.json({ message: 'Movie Tickets API running' }));
 app.use('/api/auth', authRoutes);
 app.use('/api/movies', movieRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payment', paymentRoutes);
 
-// 6. Global error handler — must be last
+// 6. Global error handler
 app.use((err, _req, res, _next) => {
   console.error(err.stack);
   res.status(500).json({ message: err.message || 'Internal server error' });
 });
 
-// Local dev only — Vercel uses the exported app directly
+// Local dev only
 if (process.env.NODE_ENV !== 'production') {
   function startServer(retries = 5) {
     const server = app.listen(PORT, () => {

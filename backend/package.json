@@ -1,7 +1,7 @@
 {
   "name": "movie_tickets_platform",
   "version": "1.0.0",
-  "description": "Movie Ticket Booking System — Express + PostgreSQL backend",
+  "description": "Movie Ticket Booking System — Express + MongoDB backend",
   "main": "server.js",
   "type": "module",
   "scripts": {
@@ -14,7 +14,7 @@
     "cors": "^2.8.6",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.20.0",
+    "mongoose": "^8.15.0",
     "stripe": "^22.2.2"
   }
 }
