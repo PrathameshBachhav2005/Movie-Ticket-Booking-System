@@ -1,7 +1,3 @@
-// load-env.js MUST be the first import — ES module imports are hoisted,
-// so dotenv must run before any other module reads process.env
-import './load-env.js';
-
 import express from 'express';
 import cors from 'cors';
 import authRoutes from './src/routes/auth.routes.js';

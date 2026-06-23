@@ -5,14 +5,13 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "dev": "node --watch --watch-path=src --watch-path=server.js --watch-path=load-env.js --watch-preserve-output server.js",
-    "start": "node server.js"
+    "dev": "node --env-file=.env --watch --watch-path=src --watch-path=server.js --watch-preserve-output server.js",
+    "start": "node --env-file=.env server.js"
   },
   "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^16.4.7",
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
