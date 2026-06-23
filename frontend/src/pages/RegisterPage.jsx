@@ -1,24 +1,23 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import api from '../api/axios.js';
-import { useAuth } from '../context/AuthContext.jsx';
 import * as Icons from "lucide-react";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-  const { login } = useAuth();
   const [form, setForm] = useState({ username: '', email: '', password: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e) {
     e.preventDefault(); setError('');
     if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
     setLoading(true);
     try {
-      const res = await api.post('/auth/register', form);
-      login(res.data.token, res.data.user);
-      navigate('/');
+      await api.post('/auth/register', form);
+      setSuccess(true);
+      setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
       setError(err.response?.data?.message || err.response?.data?.errors?.[0] || 'Registration failed.');
     } finally { setLoading(false); }
@@ -35,6 +34,7 @@ export default function RegisterPage() {
           <p className="text-gray-500 text-sm">Join CineBook and start booking</p>
         </div>
         <div className="card p-8">
+          {success && <div className="text-emerald-400 text-sm px-4 py-3 rounded-xl mb-6" style={{background:'rgba(16,185,129,0.10)',border:'1px solid rgba(16,185,129,0.20)'}}>✅ Account created! Redirecting to sign in…</div>}
           {error && <div className="text-red-400 text-sm px-4 py-3 rounded-xl mb-6" style={{background:'rgba(239,68,68,0.10)',border:'1px solid rgba(239,68,68,0.20)'}}>{error}</div>}
           <form onSubmit={handleSubmit} className="space-y-5">
             {[{name:'username',type:'text',label:'Username',ph:'cinephile99'},{name:'email',type:'email',label:'Email',ph:'you@example.com'},{name:'password',type:'password',label:'Password',ph:'Min. 6 characters'}].map(({name,type,label,ph}) => (

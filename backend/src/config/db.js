@@ -3,11 +3,13 @@ import { movies as seedMovies } from '../data/movies.js';
 
 const { Pool } = pg;
 
+const isRemoteDb = process.env.DATABASE_URL &&
+  !process.env.DATABASE_URL.includes('localhost') &&
+  !process.env.DATABASE_URL.includes('127.0.0.1');
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  // Always use SSL for remote DBs (Aiven, Neon, Supabase etc.)
-  // rejectUnauthorized: false accepts self-signed certs used by Aiven/Neon
-  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false,
+  ssl: isRemoteDb ? { rejectUnauthorized: false } : false,
 });
 
 export async function initDb(retries = 5, delayMs = 2000) {
