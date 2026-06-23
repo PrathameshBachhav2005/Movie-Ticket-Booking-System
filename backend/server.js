@@ -19,7 +19,7 @@ const allowedOrigins = [
   process.env.CLIENT_URL,
 ].filter(Boolean);
 
-// CORS must be registered before any routes
+// 1. CORS — must be first
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -28,24 +28,10 @@ app.use(cors({
   credentials: true,
 }));
 
+// 2. Body parser
 app.use(express.json());
 
-// Routes
-app.get('/', (_req, res) => res.json({ message: 'Movie Tickets API running' }));
-app.use('/api/auth', authRoutes);
-app.use('/api/movies', movieRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/payment', paymentRoutes);
-
-// Global error handler
-app.use((err, _req, res, _next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: err.message || 'Internal server error' });
-});
-
-// ─── DB initialisation ────────────────────────────────────────────────────────
-// Run once per cold start. On Vercel this happens inside the first request
-// because top-level await isn't used (keeps startup fast).
+// 3. DB init — kick off immediately, don't block module load
 let dbReady = false;
 let dbError = null;
 
@@ -57,20 +43,35 @@ const dbInit = initDb()
   .catch((err) => {
     dbError = err;
     console.error('❌ DB init failed:', err.message);
-    // In local dev crash immediately so you see the error
     if (process.env.NODE_ENV !== 'production') process.exit(1);
   });
 
-// Middleware that waits for DB before processing any request
+// 4. DB gate — BEFORE all routes, every request waits for DB
 app.use(async (_req, res, next) => {
-  if (!dbReady) {
-    if (dbError) return res.status(503).json({ message: 'Database unavailable: ' + dbError.message });
+  if (dbReady) return next();
+  if (dbError) return res.status(503).json({ message: 'Database unavailable: ' + dbError.message });
+  try {
     await dbInit;
+    next();
+  } catch (err) {
+    res.status(503).json({ message: 'Database unavailable: ' + err.message });
   }
-  next();
 });
 
-// ─── Local dev server ─────────────────────────────────────────────────────────
+// 5. Routes — after DB gate
+app.get('/', (_req, res) => res.json({ message: 'Movie Tickets API running' }));
+app.use('/api/auth', authRoutes);
+app.use('/api/movies', movieRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/payment', paymentRoutes);
+
+// 6. Global error handler — must be last
+app.use((err, _req, res, _next) => {
+  console.error(err.stack);
+  res.status(500).json({ message: err.message || 'Internal server error' });
+});
+
+// Local dev only — Vercel uses the exported app directly
 if (process.env.NODE_ENV !== 'production') {
   function startServer(retries = 5) {
     const server = app.listen(PORT, () => {
@@ -91,5 +92,4 @@ if (process.env.NODE_ENV !== 'production') {
   startServer();
 }
 
-// Exported for Vercel serverless
 export default app;
