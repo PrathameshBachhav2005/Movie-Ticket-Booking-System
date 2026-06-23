@@ -15,6 +15,10 @@ const pool = new Pool({
   connectionTimeoutMillis: 5000,
 });
 
+pool.on('error', (err) => {
+  console.error('Unexpected error on idle database client:', err.message || err);
+});
+
 export async function initDb() {
   // Create tables (safe to run every time — IF NOT EXISTS)
   await pool.query(`
