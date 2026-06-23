@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-// In the Kiro preview environment the backend is served under /_/backend.
-// VITE_API_BASE_URL can override this; falls back to /api for local dev.
+// Always use /api — Vite proxy forwards to localhost:8080 in dev,
+// and vercel.json rewrites handle it in production.
+// Do NOT set VITE_API_BASE_URL unless using Kiro preview.
 const baseURL = import.meta.env.VITE_API_BASE_URL || '/api';
 
 const api = axios.create({ baseURL });
