@@ -1,24 +1,19 @@
 {
   "name": "movie_tickets_platform",
   "version": "1.0.0",
-  "description": "",
+  "description": "Movie Ticket Booking System — Express + PostgreSQL backend",
   "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch --watch-path=src --watch-path=server.js --watch-path=load-env.js --watch-preserve-output server.js",
-    "start": "node server.js",
-    "dev1": "node --watch index.mjs"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "module",
+  "scripts": {
+    "dev": "node --watch --watch-path=src --watch-path=server.js --watch-path=load-env.js --watch-preserve-output server.js",
+    "start": "node server.js"
+  },
+  "license": "ISC",
   "dependencies": {
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^16.4.7",
     "express": "^5.2.1",
-    "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.20.0",
     "stripe": "^22.2.2"
